@@ -1,2 +1,7 @@
 src/PclSharpWrapper/.vs
 demo/PclCSharpDemo/.vs
+/src/PclSharpWrapper/PclCSharp/.vs
+/src/PclSharpWrapper/PclSharpWrapper/Debug
+/src/PclSharpWrapper/PclSharpWrapper/x64/Debug
+/src/PclSharpWrapper/PointCloudDll/Debug
+/src/PclSharpWrapper/PointCloudDll/x64/Debug
