@@ -18,8 +18,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
+    - name: Setup MSVC environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Install Ninja
+      run: choco install ninja -y
+      shell: pwsh
 
     - name: Download PCL 1.14.1 AllInOne installer
       run: |
@@ -43,118 +49,74 @@ jobs:
         }
       shell: pwsh
 
-    - name: Discover PCL structure
+    - name: Locate PCL cmake config and expose PCL_DIR
       run: |
         $pclBase = "C:\PCL"
 
-        # Discover versioned subdirectories
-        $pclInclude = (Get-ChildItem "$pclBase\include" -Directory | Select-Object -First 1).FullName
-        $vtkInclude  = (Get-ChildItem "$pclBase\3rdParty\VTK\include"  -Directory -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-        $boostInclude= (Get-ChildItem "$pclBase\3rdParty\Boost\include" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-        $eigenInclude= "$pclBase\3rdParty\Eigen\eigen3"
-        $flannInclude= "$pclBase\3rdParty\FLANN\include"
-
-        Write-Host "PCL include   : $pclInclude"
-        Write-Host "VTK include   : $vtkInclude"
-        Write-Host "Boost include : $boostInclude"
-        Write-Host "Eigen include : $eigenInclude"
-        Write-Host "FLANN include : $flannInclude"
-
-        # Lib directories
-        $pclLib  = "$pclBase\lib"
-        $vtkLib  = "$pclBase\3rdParty\VTK\lib"
-        $boostLib= "$pclBase\3rdParty\Boost\lib"
-        $flannLib= "$pclBase\3rdParty\FLANN\lib"
-
-        # --- PCL release lib files ---
-        $pclLibFiles = (Get-ChildItem $pclLib -Filter "pcl_*_release.lib" |
-                        ForEach-Object { $_.Name }) -join ";"
-        Write-Host "PCL libs: $pclLibFiles"
-
-        # --- Required VTK lib files (discover version suffix dynamically) ---
-        $vtkModules = @(
-          "vtkCommonCore", "vtkCommonDataModel", "vtkCommonExecutionModel",
-          "vtkCommonMath", "vtkCommonMisc", "vtkCommonSystem", "vtkCommonTransforms",
-          "vtkIOCore", "vtkIOGeometry", "vtksys", "vtkzlib", "vtklz4"
+        # The AllInOne installer places PCLConfig.cmake under cmake\ or lib\cmake\pcl\
+        $candidates = @(
+          "$pclBase\cmake",
+          "$pclBase\lib\cmake\pcl"
         )
-        $vtkLibFiles = @()
-        foreach ($mod in $vtkModules) {
-          $found = Get-ChildItem $vtkLib -Filter "${mod}-*.lib" -ErrorAction SilentlyContinue |
-                   Where-Object { $_.Name -notlike "*-gd-*" -and $_.Name -notlike "*d.lib" } |
-                   Select-Object -First 1
-          if ($found) { $vtkLibFiles += $found.Name }
+        $pclDir = $null
+        foreach ($c in $candidates) {
+          if (Test-Path "$c\PCLConfig.cmake") { $pclDir = $c; break }
         }
-        $vtkLibStr = $vtkLibFiles -join ";"
-        Write-Host "VTK libs: $vtkLibStr"
-
-        # Persist for next step
-        "PCL_INCLUDE=$pclInclude"   | Out-File -Append $env:GITHUB_ENV
-        "VTK_INCLUDE=$vtkInclude"   | Out-File -Append $env:GITHUB_ENV
-        "BOOST_INCLUDE=$boostInclude"| Out-File -Append $env:GITHUB_ENV
-        "EIGEN_INCLUDE=$eigenInclude"| Out-File -Append $env:GITHUB_ENV
-        "FLANN_INCLUDE=$flannInclude"| Out-File -Append $env:GITHUB_ENV
-        "PCL_LIB=$pclLib"           | Out-File -Append $env:GITHUB_ENV
-        "VTK_LIB=$vtkLib"           | Out-File -Append $env:GITHUB_ENV
-        "BOOST_LIB=$boostLib"       | Out-File -Append $env:GITHUB_ENV
-        "FLANN_LIB=$flannLib"       | Out-File -Append $env:GITHUB_ENV
-        "PCL_LIB_FILES=$pclLibFiles"| Out-File -Append $env:GITHUB_ENV
-        "VTK_LIB_FILES=$vtkLibStr"  | Out-File -Append $env:GITHUB_ENV
+        if (-not $pclDir) {
+          # Fallback: search recursively
+          $found = Get-ChildItem $pclBase -Recurse -Filter "PCLConfig.cmake" -ErrorAction SilentlyContinue |
+                   Select-Object -First 1
+          if ($found) { $pclDir = $found.DirectoryName }
+        }
+        if (-not $pclDir) {
+          Write-Error "Could not locate PCLConfig.cmake under $pclBase"
+          exit 1
+        }
+        Write-Host "PCL_DIR = $pclDir"
+        "PCL_DIR=$pclDir" | Out-File -Append $env:GITHUB_ENV
+        "PCL_ROOT=$pclBase" | Out-File -Append $env:GITHUB_ENV
       shell: pwsh
 
-    - name: Generate PclRelease.props
+    - name: Configure C++ projects with CMake
       run: |
-        $pclInclude  = $env:PCL_INCLUDE
-        $vtkInclude  = $env:VTK_INCLUDE
-        $boostInclude= $env:BOOST_INCLUDE
-        $eigenInclude= $env:EIGEN_INCLUDE
-        $flannInclude= $env:FLANN_INCLUDE
-        $pclLib      = $env:PCL_LIB
-        $vtkLib      = $env:VTK_LIB
-        $boostLib    = $env:BOOST_LIB
-        $flannLib    = $env:FLANN_LIB
-        $pclLibFiles = $env:PCL_LIB_FILES
-        $vtkLibFiles = $env:VTK_LIB_FILES
-
-        $props = @"
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Auto-generated by GitHub Actions for PCL 1.14.1 build. -->
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <ImportGroup Label="PropertySheets" />
-  <PropertyGroup Label="UserMacros" />
-  <ItemDefinitionGroup>
-    <ClCompile>
-      <AdditionalIncludeDirectories>$pclInclude;$vtkInclude;$boostInclude;$eigenInclude;$flannInclude;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>FLANN_STATIC;_USE_MATH_DEFINES;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-    <Link>
-      <AdditionalLibraryDirectories>$pclLib;$vtkLib;$boostLib;$flannLib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$pclLibFiles;$vtkLibFiles;%(AdditionalDependencies)</AdditionalDependencies>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemGroup />
-</Project>
-"@
-        $props | Out-File -FilePath "src\PclSharpWrapper\PclRelease.props" -Encoding UTF8
-        Write-Host "Generated PclRelease.props:"
-        Get-Content "src\PclSharpWrapper\PclRelease.props"
+        cmake -S . -B build `
+          -G Ninja `
+          -DCMAKE_BUILD_TYPE=Release `
+          "-DPCL_DIR=$env:PCL_DIR" `
+          "-DPCL_ROOT=$env:PCL_ROOT"
       shell: pwsh
 
-    - name: Build solution (Release|x64)
+    - name: Build C++ DLLs with CMake
+      run: |
+        cmake --build build --config Release --parallel
+      shell: pwsh
+
+    - name: Upload CMake build log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cmake-build-log
+        path: build/
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Build .NET solution
       run: |
         msbuild "src\PclSharpWrapper\PclSharpWrapper.sln" `
           /p:Configuration=Release `
           /p:Platform=x64 `
           /m `
           /v:minimal `
-          /bl:build.binlog
+          /bl:msbuild.binlog
       shell: pwsh
 
-    - name: Upload build log on failure
+    - name: Upload MSBuild log on failure
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: build-log
-        path: build.binlog
+        name: msbuild-log
+        path: msbuild.binlog
 
     - name: Collect runtime DLLs into depend/x64
       run: |
