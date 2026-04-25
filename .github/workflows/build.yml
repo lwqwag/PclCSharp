@@ -1,4 +1,4 @@
-name: Build PclCSharp with PCL 1.14.1
+name: Build PclCSharp (PCL built from source)
 
 on:
   push:
@@ -9,10 +9,15 @@ on:
 
 permissions:
   contents: read
+  actions: write   # required for vcpkg GitHub Actions binary caching
 
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # Use the GitHub Actions cache backend for vcpkg binary packages.
+      # Packages are cached individually so only changed packages are rebuilt.
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
     steps:
     - name: Checkout code
@@ -27,54 +32,28 @@ jobs:
       run: choco install ninja -y
       shell: pwsh
 
-    - name: Download PCL 1.14.1 AllInOne installer
-      run: |
-        $url = "https://github.com/PointCloudLibrary/pcl/releases/download/pcl-1.14.1/PCL-1.14.1-AllInOne-msvc2022-win64.exe"
-        Write-Host "Downloading PCL 1.14.1..."
-        Invoke-WebRequest -Uri $url -OutFile "PCL-installer.exe" -TimeoutSec 600
-        Write-Host "Download complete. Size: $((Get-Item 'PCL-installer.exe').Length / 1MB) MB"
-      shell: pwsh
+    # Export the two env vars that vcpkg needs to talk to the GHA cache API.
+    # They are always present in the runner environment but must be exported
+    # explicitly for child processes (vcpkg) to see them.
+    - name: Export GitHub Actions cache env vars for vcpkg
+      uses: actions/github-script@v7
+      with:
+        script: |
+          core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
-    - name: Install PCL 1.14.1
+    - name: Build and install PCL from source via vcpkg
       run: |
-        Write-Host "Installing PCL 1.14.1 to C:\PCL ..."
-        $proc = Start-Process -Wait -PassThru -FilePath ".\PCL-installer.exe" -ArgumentList "/S /D=C:\PCL"
-        Write-Host "Exit code: $($proc.ExitCode)"
-        if (Test-Path "C:\PCL\include") {
-          Write-Host "PCL installed successfully"
-          Get-ChildItem "C:\PCL" | Select-Object Name
-        } else {
-          Write-Error "PCL installation failed - include directory not found"
-          exit 1
-        }
-      shell: pwsh
+        $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+        Write-Host "vcpkg root: $vcpkgRoot"
 
-    - name: Locate PCL cmake config and expose PCL_DIR
-      run: |
-        $pclBase = "C:\PCL"
+        # Install PCL and all its dependencies (Eigen3, Boost, FLANN, qhull …).
+        # On a cold runner this compiles everything from source; subsequent runs
+        # restore pre-built binaries from the GitHub Actions cache above.
+        & "$vcpkgRoot\vcpkg.exe" install "pcl:x64-windows" --no-print-usage
 
-        # The AllInOne installer places PCLConfig.cmake under cmake\ or lib\cmake\pcl\
-        $candidates = @(
-          "$pclBase\cmake",
-          "$pclBase\lib\cmake\pcl"
-        )
-        $pclDir = $null
-        foreach ($c in $candidates) {
-          if (Test-Path "$c\PCLConfig.cmake") { $pclDir = $c; break }
-        }
-        if (-not $pclDir) {
-          # Fallback: search recursively
-          $found = Get-ChildItem $pclBase -Recurse -Filter "PCLConfig.cmake" -ErrorAction SilentlyContinue |
-                   Select-Object -First 1
-          if ($found) { $pclDir = $found.DirectoryName }
-        }
-        if (-not $pclDir) {
-          Write-Error "Could not locate PCLConfig.cmake under $pclBase"
-          exit 1
-        }
-        Write-Host "PCL_DIR = $pclDir"
-        "PCL_DIR=$pclDir" | Out-File -Append $env:GITHUB_ENV
-        "PCL_ROOT=$pclBase" | Out-File -Append $env:GITHUB_ENV
+        # Expose the vcpkg root so later steps can reference it.
+        "VCPKG_ROOT=$vcpkgRoot" | Out-File -Append $env:GITHUB_ENV
       shell: pwsh
 
     - name: Configure C++ projects with CMake
@@ -82,8 +61,8 @@ jobs:
         cmake -S . -B build `
           -G Ninja `
           -DCMAKE_BUILD_TYPE=Release `
-          "-DPCL_DIR=$env:PCL_DIR" `
-          "-DPCL_ROOT=$env:PCL_ROOT"
+          "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+          -DVCPKG_TARGET_TRIPLET=x64-windows
       shell: pwsh
 
     - name: Build C++ DLLs with CMake
@@ -120,39 +99,30 @@ jobs:
 
     - name: Collect runtime DLLs into depend/x64
       run: |
-        $pclBase = "C:\PCL"
-        $destDir = "depend\x64"
+        $vcpkgBin = "$env:VCPKG_ROOT\installed\x64-windows\bin"
+        $destDir  = "depend\x64"
+        New-Item -ItemType Directory -Force -Path $destDir | Out-Null
 
-        # PCL runtime DLLs
         Write-Host "Copying PCL DLLs..."
-        Get-ChildItem "$pclBase\bin" -Filter "pcl_*_release.dll" |
+        Get-ChildItem $vcpkgBin -Filter "pcl_*.dll" |
           Copy-Item -Destination $destDir -Force
 
-        # VTK runtime DLLs
-        Write-Host "Copying VTK DLLs..."
-        $vtkModules = @(
-          "vtkCommonCore", "vtkCommonDataModel", "vtkCommonExecutionModel",
-          "vtkCommonMath", "vtkCommonMisc", "vtkCommonSystem", "vtkCommonTransforms",
-          "vtkIOCore", "vtkIOGeometry", "vtksys", "vtkzlib", "vtklz4"
-        )
-        foreach ($mod in $vtkModules) {
-          $found = Get-ChildItem "$pclBase\3rdParty\VTK\bin" -Filter "${mod}-*.dll" -ErrorAction SilentlyContinue |
-                   Where-Object { $_.Name -notlike "*-gd-*" } |
-                   Select-Object -First 1
-          if ($found) {
-            Copy-Item $found.FullName -Destination $destDir -Force
-            Write-Host "  Copied $($found.Name)"
-          }
+        Write-Host "Copying dependency DLLs (Boost, FLANN, qhull, zlib, lz4, lzma)..."
+        $patterns = @("boost_*.dll", "flann_cpp*.dll", "qhull*.dll",
+                      "zlib1.dll", "lz4*.dll", "lzma*.dll")
+        foreach ($pat in $patterns) {
+          Get-ChildItem $vcpkgBin -Filter $pat -ErrorAction SilentlyContinue |
+            Copy-Item -Destination $destDir -Force
         }
 
-        Write-Host "`nRuntime DLLs in depend/x64:"
+        Write-Host "`nRuntime DLLs collected in $destDir :"
         Get-ChildItem $destDir | Sort-Object Name | Select-Object Name
       shell: pwsh
 
     - name: Upload DLL artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: PclCSharp-DLLs-PCL1.14.1
+        name: PclCSharp-DLLs
         path: |
           bin/*.dll
           bin/*.pdb
