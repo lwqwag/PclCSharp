@@ -4,7 +4,6 @@
 #include <pcl/common/transforms.h>
 #include <pcl/common/common.h>
 #include <pcl/common/common_headers.h>
-#include <pcl/common/statistics.h>
 
 /*
  * Copyright (c) 2022, ��ǵ�
