@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(PclDll CXX)
 
+find_package(PCL REQUIRED)
+
 # Source files for the PclSharpWrapper DLL
 set(SOURCES
     filter.cpp
@@ -21,6 +23,8 @@ set(HEADERS
 )
 
 add_library(PclDll SHARED ${SOURCES} ${HEADERS})
+
+target_compile_options(PclDll PRIVATE ${PCL_DEFINITIONS})
 
 target_compile_definitions(PclDll PRIVATE
     PCLSHARPWRAPPER_EXPORTS

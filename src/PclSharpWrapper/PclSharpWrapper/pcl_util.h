@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <vector>
+#include <pcl/common/io.h>
 #include <pcl/common/transforms.h>
 #include <pcl/common/common.h>
 #include <pcl/common/common_headers.h>
