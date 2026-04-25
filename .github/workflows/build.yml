@@ -23,6 +23,36 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Free disk space
+      shell: pwsh
+      run: |
+        # Remove large pre-installed tools that are not needed for this build.
+        # Windows runners typically have ~14 GB free; VTK + PCL compilation
+        # via vcpkg needs ~12-14 GB, so every GB recovered matters.
+
+        $dirsToRemove = @(
+          'C:\Android',                         # Android SDK/NDK  (~8 GB)
+          'C:\hostedtoolcache\windows\go',      # Go toolchains    (~3 GB)
+          'C:\hostedtoolcache\windows\Python',  # Python versions  (~2 GB)
+          'C:\hostedtoolcache\windows\node',    # Node.js versions (~1 GB)
+          'C:\hostedtoolcache\windows\Ruby',    # Ruby versions    (~1 GB)
+          'C:\hostedtoolcache\windows\Java',    # Temurin JDKs     (~1 GB)
+          'C:\hostedtoolcache\windows\julia',   # Julia            (~1 GB)
+          'C:\Miniconda',                       # Conda            (~1 GB)
+          'C:\Strawberry',                      # Strawberry Perl  (~0.5 GB)
+          'C:\ProgramData\Miniconda3'           # Conda base env   (~1 GB)
+        )
+
+        foreach ($dir in $dirsToRemove) {
+          if (Test-Path $dir) {
+            Write-Host "Removing $dir ..."
+            Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
+          }
+        }
+
+        Write-Host "`nDisk space after cleanup:"
+        Get-PSDrive C | Select-Object Used, Free
+
     - name: Setup MSVC environment
       uses: ilammy/msvc-dev-cmd@v1
       with:
@@ -50,7 +80,10 @@ jobs:
         # Install PCL and all its dependencies (Eigen3, Boost, FLANN, qhull …).
         # On a cold runner this compiles everything from source; subsequent runs
         # restore pre-built binaries from the GitHub Actions cache above.
-        & "$vcpkgRoot\vcpkg.exe" install "pcl[vtk]:x64-windows" --no-print-usage
+        & "$vcpkgRoot\vcpkg.exe" install "pcl[vtk]:x64-windows" `
+            --no-print-usage `
+            --clean-buildtrees-after-build `
+            --clean-packages-after-build
 
         # Expose the vcpkg root so later steps can reference it.
         "VCPKG_ROOT=$vcpkgRoot" | Out-File -Append $env:GITHUB_ENV
