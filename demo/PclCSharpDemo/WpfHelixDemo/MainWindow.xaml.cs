@@ -231,6 +231,49 @@ public partial class MainWindow : Window
         return cloud;
     }
 
+    /// <summary>
+    /// Generate a SegDemo-like cloud: many radial lines on a circle,
+    /// each line extends outward with random Z, and two angle sectors have
+    /// shifted Z ranges to form separable clusters.
+    /// </summary>
+    private static PointCloudXYZ GenerateSegDemoStyleCloud()
+    {
+        const int angleStart = 0;
+        const int angleEnd = 360;
+        const int angleStep = 4;
+        const int pointsPerRay = 100;
+        const double startRadius = 4.0;
+        const double radiusStep = 4.0;
+
+        var cloud = new PointCloudXYZ();
+        var rng = new Random(42);
+
+        for (int theta = angleStart; theta < angleEnd; theta += angleStep)
+        {
+            double rad = theta * Math.PI / 180.0;
+            double cos = Math.Cos(rad);
+            double sin = Math.Sin(rad);
+            double radius = startRadius;
+
+            for (int i = 0; i < pointsPerRay; i++)
+            {
+                double x = cos * radius;
+                double y = sin * radius;
+                double z = rng.NextDouble() * 10.0 - 5.0; // [-5, 5]
+
+                if (theta > 160 && theta < 210)
+                    z = rng.NextDouble() * 10.0 - 30.0;   // [-30, -20]
+                else if (theta > 40 && theta < 90)
+                    z = rng.NextDouble() * 10.0 + 30.0;   // [30, 40]
+
+                cloud.Push(x, y, z);
+                radius += radiusStep;
+            }
+        }
+
+        return cloud;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     //  IO Tab handlers
     // ═══════════════════════════════════════════════════════════════════════════
@@ -318,6 +361,13 @@ public partial class MainWindow : Window
             MessageBox.Show($"操作失败：{ex.Message}", "错误",
                             MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void GenSegDemoCloudBtn_Click(object sender, RoutedEventArgs e)
+    {
+        _inputCloud = GenerateSegDemoStyleCloud();
+        RefreshInput();
+        SetStatus($"已生成 SegDemo 风格点云 – {_inputCloud.Size:N0} 个点");
     }
 
     private void SaveFile(string filter, Action<string> save)
@@ -458,6 +508,12 @@ public partial class MainWindow : Window
             }
 
             ShowClusters(OutputViewport, clusters);
+
+            if (clusters.Count == 0)
+            {
+                SetStatus($"{name} 完成 – 未找到任何簇，请调整参数后重试");
+                return;
+            }
 
             // Copy the largest cluster into _outputCloud for downstream use
             int maxIdx = 0, maxSize = 0;

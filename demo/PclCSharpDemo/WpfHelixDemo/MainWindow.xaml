@@ -262,6 +262,14 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#181825">
                         <StackPanel Margin="6">
 
+                            <GroupBox Header="演示数据生成 (SegDemo 风格)">
+                                <StackPanel>
+                                    <TextBlock Text="生成环形线束点云，便于直接测试分割效果。"
+                                               TextWrapping="Wrap" Foreground="#BAC2E8" FontSize="11" Margin="0,0,0,4"/>
+                                    <Button x:Name="GenSegDemoCloudBtn" Content="生成分割演示点云" Click="GenSegDemoCloudBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
                             <GroupBox Header="欧式聚类 (Euclidean Cluster)">
                                 <StackPanel>
                                     <Grid>
