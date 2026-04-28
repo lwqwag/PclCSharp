@@ -202,14 +202,14 @@ public partial class MainWindow : Window
     /// Generate a synthetic point cloud (disk + random noise outliers)
     /// so the demo is usable without any external file or native DLL.
     /// </summary>
-    private static PointCloudXYZ GenerateSyntheticCloud(int diskPoints = 6_000,
+    private static PointCloudXYZ GenerateSyntheticCloud(int planePoints = 6_000,
                                                           int noisePoints = 200)
     {
         var cloud = new PointCloudXYZ();
         var rng = new Random(42);
 
         // Disk in the XY plane with z ≈ 0 + small noise
-        for (int i = 0; i < diskPoints; i++)
+        for (int i = 0; i < planePoints; i++)
         {
             double angle  = rng.NextDouble() * 2 * Math.PI;
             double r      = Math.Sqrt(rng.NextDouble()) * 2.0; // uniform on disk radius 2
