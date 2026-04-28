@@ -7,6 +7,12 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+# Cancel any in-progress run on the same branch/PR when a new commit is pushed.
+# This avoids wasting runner minutes on stale builds.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   actions: write   # required for vcpkg GitHub Actions binary caching
@@ -22,6 +28,16 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    # Cache the vcpkg downloads directory to avoid re-downloading source archives
+    # on cache misses (e.g. first run after a vcpkg baseline bump).
+    - name: Cache vcpkg downloads
+      uses: actions/cache@v4
+      with:
+        path: C:\vcpkg\downloads
+        key: vcpkg-downloads-${{ runner.os }}-${{ hashFiles('**/vcpkg.json') }}
+        restore-keys: |
+          vcpkg-downloads-${{ runner.os }}-
 
     - name: Free disk space
       shell: pwsh
