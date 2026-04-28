@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="PclSharpWrapper\PclSharpWrapper.vcxproj" />
+  <Project Path="PclCSharp\PclCSharp.csproj" />
+  <Project Path="PointCloudDll\PointCloudDll.vcxproj" />
+  <Project Path="PointCloudSharpDll\PointCloudSharpDll.csproj" />
+</Solution>
