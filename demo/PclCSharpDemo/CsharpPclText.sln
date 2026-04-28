@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.5.11716.220 stable
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SegDemo", "SegDemo\SegDemo.csproj", "{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WpfHelixDemo", "WpfHelixDemo\WpfHelixDemo.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
 Global
@@ -17,18 +15,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Debug|x64.Build.0 = Debug|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Debug|x86.Build.0 = Debug|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Release|x64.ActiveCfg = Release|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Release|x64.Build.0 = Release|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Release|x86.ActiveCfg = Release|Any CPU
-		{B4193CF9-E785-44CE-9E0D-CB4669B6EE7E}.Release|x86.Build.0 = Release|Any CPU
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.ActiveCfg = Debug|Any CPU
