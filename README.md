@@ -1,6 +1,6 @@
 ![image-20220621165049274](README.assets/image-20220621165049274.png)
 
-​                                                                                                   ![GitHub Repo stars](https://img.shields.io/github/stars/booksuper/PclCSharp.svg?style=social) ![GitHub forks](https://img.shields.io/github/forks/booksuper/PclCSharp?style=social)
+​                                                                                                   ![GitHub Repo stars](https://img.shields.io/github/stars/lwqwag/PclCSharp.svg?style=social) ![GitHub forks](https://img.shields.io/github/forks/lwqwag/PclCSharp?style=social)
 
 ​                                                [![](https://img.shields.io/badge/%E4%BD%9C%E8%80%85-%40ShuDengdeng-orange?link=https://github.com/booksuper)](https://github.com/booksuper)[![](https://img.shields.io/badge/Gitee-%40ShuDengdeng-orange?logo=Gitee&link=https://gitee.com/shudengdeng)](https://gitee.com/shudengdeng) ![netFramework](https://img.shields.io/badge/.NET%20Framework%204.6.1-passed-green) ![license](https://img.shields.io/badge/license-BSD--3-brightgreen)
 

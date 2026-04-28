@@ -1,0 +1,162 @@
+name: Build PclCSharp (PCL built from source)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write   # required for vcpkg GitHub Actions binary caching
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      # Use the GitHub Actions cache backend for vcpkg binary packages.
+      # Packages are cached individually so only changed packages are rebuilt.
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Free disk space
+      shell: pwsh
+      run: |
+        # Remove large pre-installed tools that are not needed for this build.
+        # Windows runners typically have ~14 GB free; VTK + PCL compilation
+        # via vcpkg needs ~12-14 GB, so every GB recovered matters.
+
+        $dirsToRemove = @(
+          'C:\Android',                         # Android SDK/NDK  (~8 GB)
+          'C:\hostedtoolcache\windows\go',      # Go toolchains    (~3 GB)
+          'C:\hostedtoolcache\windows\Python',  # Python versions  (~2 GB)
+          'C:\hostedtoolcache\windows\node',    # Node.js versions (~1 GB)
+          'C:\hostedtoolcache\windows\Ruby',    # Ruby versions    (~1 GB)
+          'C:\hostedtoolcache\windows\Java',    # Temurin JDKs     (~1 GB)
+          'C:\hostedtoolcache\windows\julia',   # Julia            (~1 GB)
+          'C:\Miniconda',                       # Conda            (~1 GB)
+          'C:\Strawberry',                      # Strawberry Perl  (~0.5 GB)
+          'C:\ProgramData\Miniconda3'           # Conda base env   (~1 GB)
+        )
+
+        foreach ($dir in $dirsToRemove) {
+          if (Test-Path $dir) {
+            Write-Host "Removing $dir ..."
+            Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
+          }
+        }
+
+        Write-Host "`nDisk space after cleanup:"
+        Get-PSDrive C | Select-Object Used, Free
+
+    - name: Setup MSVC environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Install Ninja
+      run: choco install ninja -y
+      shell: pwsh
+
+    # Export the two env vars that vcpkg needs to talk to the GHA cache API.
+    # They are always present in the runner environment but must be exported
+    # explicitly for child processes (vcpkg) to see them.
+    - name: Export GitHub Actions cache env vars for vcpkg
+      uses: actions/github-script@v7
+      with:
+        script: |
+          core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+    - name: Build and install PCL from source via vcpkg
+      run: |
+        $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+        Write-Host "vcpkg root: $vcpkgRoot"
+
+        # Install PCL and all its dependencies (Eigen3, Boost, FLANN, qhull …).
+        # On a cold runner this compiles everything from source; subsequent runs
+        # restore pre-built binaries from the GitHub Actions cache above.
+        & "$vcpkgRoot\vcpkg.exe" install "pcl[vtk]:x64-windows" `
+            --no-print-usage `
+            --clean-buildtrees-after-build `
+            --clean-packages-after-build
+
+        # Expose the vcpkg root so later steps can reference it.
+        "VCPKG_ROOT=$vcpkgRoot" | Out-File -Append $env:GITHUB_ENV
+      shell: pwsh
+
+    - name: Configure C++ projects with CMake
+      run: |
+        cmake -S . -B build `
+          -G Ninja `
+          -DCMAKE_BUILD_TYPE=Release `
+          "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+      shell: pwsh
+
+    - name: Build C++ DLLs with CMake
+      run: |
+        cmake --build build --config Release --parallel
+      shell: pwsh
+
+    - name: Upload CMake build log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cmake-build-log
+        path: build/
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Build .NET solution
+      run: |
+        msbuild "src\PclSharpWrapper\PclSharpWrapper.sln" `
+          /p:Configuration=Release `
+          /p:Platform=x64 `
+          /m `
+          /v:minimal `
+          /bl:msbuild.binlog
+      shell: pwsh
+
+    - name: Upload MSBuild log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: msbuild-log
+        path: msbuild.binlog
+
+    - name: Collect runtime DLLs into depend/x64
+      run: |
+        $vcpkgBin = "$env:VCPKG_ROOT\installed\x64-windows\bin"
+        $destDir  = "depend\x64"
+        New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+
+        Write-Host "Copying PCL DLLs..."
+        Get-ChildItem $vcpkgBin -Filter "pcl_*.dll" |
+          Copy-Item -Destination $destDir -Force
+
+        Write-Host "Copying dependency DLLs (Boost, FLANN, qhull, zlib, lz4, lzma, VTK)..."
+        $patterns = @("boost_*.dll", "flann_cpp*.dll", "qhull*.dll",
+                      "zlib1.dll", "lz4*.dll", "lzma*.dll", "vtk*.dll")
+        foreach ($pat in $patterns) {
+          Get-ChildItem $vcpkgBin -Filter $pat -ErrorAction SilentlyContinue |
+            Copy-Item -Destination $destDir -Force
+        }
+
+        Write-Host "`nRuntime DLLs collected in $destDir :"
+        Get-ChildItem $destDir | Sort-Object Name | Select-Object Name
+      shell: pwsh
+
+    - name: Upload DLL artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: PclCSharp-DLLs
+        path: |
+          bin/*.dll
+          bin/*.pdb
+          depend/x64/*.dll

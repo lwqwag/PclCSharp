@@ -30,7 +30,10 @@
     - [3.3.3 euclideanCluster](#333-euclideancluster)
   - [3.4 Util](#34-util)
     - [3.4.1 correctPlane](#341-correctplane)
-    - [3.4.2 copyPcBaseOnIndice](#342-copypcbaseonindice)
+    - [3.4.2 getRunoutPoints](#342-getrunoutpoints)
+    - [3.4.3 getRunoutPointsWithResult](#343-getrunoutpointswithresult)
+    - [3.4.4 calculateRunout](#344-calculaterunout)
+    - [3.4.5 copyPcBaseOnIndice](#345-copypcbaseonindice)
   - [3.5 SampleConsensus](#35-sampleconsensus)
     - [3.5.1 fitPlane](#351-fitplane)
 
@@ -478,7 +481,42 @@ public static extern void correctPlane(IntPtr in_pc,float[] normal, IntPtr out_p
 
 
 
-### 3.4.2 copyPcBaseOnIndice
+### 3.4.2 getRunoutPoints
+
+```c#
+/// @brief 将点云按照列方向存储，每一列代表一个测量圆周，并输出用户指定的n列测量圆周点云
+/// @param in_pc 输入的点云对象指针，使用PointCloudXYZ类的PointCloudXYZPointer属性
+/// @param num 指定输出几列测量圆周点云
+/// @param out_pc 结果点云对象指针，使用PointCloudXYZ类的PointCloudXYZPointer属性
+/// @note 一般来说，n越大，越逼近端面全跳动，当n为0时，代表输出整个点云，测量的结果实际上是端面全跳动。
+/// 在DD马达端面跳动测量中，n建议取20
+public static extern void getRunoutPoints(IntPtr in_pc, int num, IntPtr out_pc);
+```
+
+### 3.4.3 getRunoutPointsWithResult
+
+```c#
+/// @brief 将点云按照列方向存储，每一列代表一个测量圆周，并输出用户指定的n列测量圆周点云。
+/// 除此之外，算法里面还会使用sigam法则剔除异常值并返回端面跳动值。
+/// @param in_pc 输入的点云对象指针，使用PointCloudXYZ类的PointCloudXYZPointer属性
+/// @param num 指定输出几列测量圆周点云
+/// @param out_pc 结果点云对象指针，使用PointCloudXYZ类的PointCloudXYZPointer属性
+/// @return 返回端面跳动值
+/// @attention 该函数只供测试使用。使用者应调用getRunoutPoints函数
+public static extern float getRunoutPointsWithResult(IntPtr in_pc, int num, IntPtr out_pc);
+```
+
+### 3.4.4 calculateRunout
+
+```c#
+/// @brief 计算端面跳动，并返回该点云中最小最大点的索引
+/// @param in_pc 输入的点云对象指针，使用PointCloudXYZ类的PointCloudXYZPointer属性
+/// @param MinMaxPointsIndices 返回该点云中Z值最小点和最大点的索引，方便可视化
+/// @return 返回端面跳动值
+public static extern double calculateRunout(IntPtr in_pc, int[] MinMaxPointsIndices);
+```
+
+### 3.4.5 copyPcBaseOnIndice
 
 ```c#
 /// @brief 根据点云的索引复制点云
