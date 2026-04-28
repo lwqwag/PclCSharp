@@ -1,6 +1,3 @@
 <Solution>
-  <Project Path="IoDemo\IoDemo.csproj" />
-  <Project Path="FilterDemo\FilterDemo.csproj" />
-  <Project Path="SegDemo\SegDemo.csproj" />
   <Project Path="WpfHelixDemo\WpfHelixDemo.csproj" />
 </Solution>
