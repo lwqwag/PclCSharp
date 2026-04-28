@@ -1,0 +1,426 @@
+<Window x:Class="WpfHelixDemo.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:helix="http://helix-toolkit.org/wpf"
+        Title="PclCSharp WPF HelixToolkit Demo" Height="720" Width="1280"
+        Background="#1E1E2E">
+
+    <Window.Resources>
+        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#313244"/>
+            <Setter Property="Foreground" Value="#CDD6F4"/>
+            <Setter Property="BorderBrush" Value="#45475A"/>
+            <Setter Property="MinWidth" Value="140"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Margin" Value="0,3"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Foreground" Value="#CDD6F4"/>
+            <Setter Property="BorderBrush" Value="#45475A"/>
+            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+        <Style TargetType="Label">
+            <Setter Property="Foreground" Value="#CDD6F4"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#313244"/>
+            <Setter Property="Foreground" Value="#CDD6F4"/>
+            <Setter Property="BorderBrush" Value="#45475A"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Margin" Value="0,2"/>
+        </Style>
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="#181825"/>
+            <Setter Property="BorderBrush" Value="#45475A"/>
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Background" Value="#313244"/>
+            <Setter Property="Foreground" Value="#CDD6F4"/>
+            <Setter Property="BorderBrush" Value="#45475A"/>
+            <Setter Property="Padding" Value="10,5"/>
+        </Style>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#CDD6F4"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#313244"/>
+            <Setter Property="Foreground" Value="#CDD6F4"/>
+            <Setter Property="BorderBrush" Value="#45475A"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Padding" Value="4,2"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="290"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ============================================================
+             LEFT PANEL – operator controls
+             ============================================================ -->
+        <DockPanel Grid.Column="0" Background="#181825" Margin="0">
+
+            <!-- Title bar -->
+            <Border DockPanel.Dock="Top" Background="#313244" Padding="12,8">
+                <TextBlock Text="PclCSharp HelixToolkit Demo"
+                           FontSize="15" FontWeight="Bold"
+                           Foreground="#89B4FA"/>
+            </Border>
+
+            <!-- Status bar -->
+            <Border DockPanel.Dock="Bottom" Background="#11111B" Padding="8,5">
+                <TextBlock x:Name="StatusText" Text="就绪 | Ready"
+                           Foreground="#A6E3A1" FontSize="11"/>
+            </Border>
+
+            <!-- Tab control -->
+            <TabControl Margin="6,6,6,4">
+
+                <!-- ======================== IO Tab ======================== -->
+                <TabItem Header="IO 加载">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#181825">
+                        <StackPanel Margin="6">
+
+                            <GroupBox Header="加载点云文件">
+                                <StackPanel>
+                                    <Button x:Name="LoadPcdBtn" Content="加载 PCD 文件" Click="LoadPcdBtn_Click"/>
+                                    <Button x:Name="LoadPlyBtn" Content="加载 PLY 文件" Click="LoadPlyBtn_Click"/>
+                                    <Button x:Name="LoadObjBtn" Content="加载 OBJ 文件" Click="LoadObjBtn_Click"/>
+                                    <Button x:Name="LoadTxtBtn" Content="加载 TXT 文件" Click="LoadTxtBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="保存点云文件">
+                                <StackPanel>
+                                    <Button x:Name="SavePcdBtn" Content="保存为 PCD" Click="SavePcdBtn_Click"/>
+                                    <Button x:Name="SavePlyBtn" Content="保存为 PLY" Click="SavePlyBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="演示：生成合成点云">
+                                <StackPanel>
+                                    <TextBlock Text="无需文件即可运行演示。" TextWrapping="Wrap"
+                                               Foreground="#BAC2E8" FontSize="11" Margin="0,0,0,4"/>
+                                    <Button x:Name="GenSyntheticBtn" Content="生成合成点云" Click="GenSyntheticBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="点云信息">
+                                <StackPanel>
+                                    <TextBlock x:Name="InputInfoText"
+                                               Text="输入点云：无" TextWrapping="Wrap" FontSize="11"/>
+                                    <TextBlock x:Name="OutputInfoText"
+                                               Text="输出点云：无" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ======================== Filter Tab ======================== -->
+                <TabItem Header="Filter 滤波">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#181825">
+                        <StackPanel Margin="6">
+
+                            <GroupBox Header="体素下采样 (Voxel)">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="叶子大小:" Grid.Column="0"/>
+                                        <TextBox x:Name="VoxelLeafTxt" Text="0.08" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="VoxelBtn" Content="体素下采样" Click="VoxelBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="近似体素下采样 (Approx Voxel)">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="叶子大小:" Grid.Column="0"/>
+                                        <TextBox x:Name="ApproxVoxelLeafTxt" Text="0.08" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="ApproxVoxelBtn" Content="近似体素下采样" Click="ApproxVoxelBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="均匀下采样 (Uniform)">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="半径:" Grid.Column="0"/>
+                                        <TextBox x:Name="UniformRadiusTxt" Text="0.1" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="UniformBtn" Content="均匀下采样" Click="UniformBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="直通滤波 (PassThrough)">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <Label Content="轴:" Grid.Row="0" Grid.Column="0"/>
+                                        <ComboBox x:Name="PassAxisCombo" Grid.Row="0" Grid.Column="1"
+                                                  SelectedIndex="2">
+                                            <ComboBoxItem Content="x"/>
+                                            <ComboBoxItem Content="y"/>
+                                            <ComboBoxItem Content="z"/>
+                                        </ComboBox>
+                                        <Label Content="最小值:" Grid.Row="1" Grid.Column="0"/>
+                                        <TextBox x:Name="PassMinTxt" Text="-0.5" Grid.Row="1" Grid.Column="1"/>
+                                        <Label Content="最大值:" Grid.Row="2" Grid.Column="0"/>
+                                        <TextBox x:Name="PassMaxTxt" Text="0.5" Grid.Row="2" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="PassBtn" Content="直通滤波" Click="PassBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="统计滤波 (Statistical)">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <Label Content="邻居数:" Grid.Row="0" Grid.Column="0"/>
+                                        <TextBox x:Name="StaNeighborTxt" Text="50" Grid.Row="0" Grid.Column="1"/>
+                                        <Label Content="阈值 α:" Grid.Row="1" Grid.Column="0"/>
+                                        <TextBox x:Name="StaThreshTxt" Text="1.0" Grid.Row="1" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="StaBtn" Content="统计滤波" Click="StaBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="半径滤波 (Radius)">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <Label Content="半径:" Grid.Row="0" Grid.Column="0"/>
+                                        <TextBox x:Name="RadiusTxt" Text="0.1" Grid.Row="0" Grid.Column="1"/>
+                                        <Label Content="邻居阈值:" Grid.Row="1" Grid.Column="0"/>
+                                        <TextBox x:Name="RadiusMinNeighborTxt" Text="5" Grid.Row="1" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="RadiusBtn" Content="半径滤波" Click="RadiusBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="Sigma 法则滤波">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="Sigma 系数:" Grid.Column="0"/>
+                                        <TextBox x:Name="SigmaTxt" Text="3" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="SigmaBtn" Content="Sigma 滤波" Click="SigmaBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ======================== Segmentation Tab ======================== -->
+                <TabItem Header="Seg 分割">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#181825">
+                        <StackPanel Margin="6">
+
+                            <GroupBox Header="欧式聚类 (Euclidean Cluster)">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <Label Content="距离阈值:" Grid.Row="0" Grid.Column="0"/>
+                                        <TextBox x:Name="EucDistTxt" Text="0.3" Grid.Row="0" Grid.Column="1"/>
+                                        <Label Content="最小簇大小:" Grid.Row="1" Grid.Column="0"/>
+                                        <TextBox x:Name="EucMinTxt" Text="10" Grid.Row="1" Grid.Column="1"/>
+                                        <Label Content="最大簇大小:" Grid.Row="2" Grid.Column="0"/>
+                                        <TextBox x:Name="EucMaxTxt" Text="1000000" Grid.Row="2" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="EucBtn" Content="欧式聚类" Click="EucBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="区域生长 (Region Growing)">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <Label Content="邻居数:" Grid.Row="0" Grid.Column="0"/>
+                                        <TextBox x:Name="RgNeighborTxt" Text="50" Grid.Row="0" Grid.Column="1"/>
+                                        <Label Content="平滑阈值:" Grid.Row="1" Grid.Column="0"/>
+                                        <TextBox x:Name="RgSmoothTxt" Text="3.0" Grid.Row="1" Grid.Column="1"/>
+                                        <Label Content="曲率阈值:" Grid.Row="2" Grid.Column="0"/>
+                                        <TextBox x:Name="RgCurveTxt" Text="1.0" Grid.Row="2" Grid.Column="1"/>
+                                        <Label Content="最小簇大小:" Grid.Row="3" Grid.Column="0"/>
+                                        <TextBox x:Name="RgMinTxt" Text="50" Grid.Row="3" Grid.Column="1"/>
+                                        <Label Content="最大簇大小:" Grid.Row="4" Grid.Column="0"/>
+                                        <TextBox x:Name="RgMaxTxt" Text="5000000" Grid.Row="4" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="RgBtn" Content="区域生长" Click="RgBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="修正区域生长 (Modified)">
+                                <StackPanel>
+                                    <TextBlock Text="同区域生长参数，直接返回最大聚类。"
+                                               TextWrapping="Wrap" Foreground="#BAC2E8" FontSize="11" Margin="0,0,0,4"/>
+                                    <Button x:Name="ModRgBtn" Content="修正区域生长" Click="ModRgBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ======================== SampleConsensus / Util Tab ======================== -->
+                <TabItem Header="SC / Util">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#181825">
+                        <StackPanel Margin="6">
+
+                            <GroupBox Header="平面拟合 (RANSAC fitPlane)">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <Label Content="距离阈值:" Grid.Row="0" Grid.Column="0"/>
+                                        <TextBox x:Name="FitPlaneDistTxt" Text="0.02" Grid.Row="0" Grid.Column="1"/>
+                                        <Label Content="最大迭代:" Grid.Row="1" Grid.Column="0"/>
+                                        <TextBox x:Name="FitPlaneIteraTxt" Text="100" Grid.Row="1" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="FitPlaneBtn" Content="RANSAC 拟合平面" Click="FitPlaneBtn_Click"/>
+                                    <TextBlock x:Name="PlaneResultText"
+                                               Text="结果：-" TextWrapping="Wrap"
+                                               Foreground="#A6E3A1" FontSize="11" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="平面校正 (correctPlane)">
+                                <StackPanel>
+                                    <TextBlock Text="先执行平面拟合，再校正点云。" TextWrapping="Wrap"
+                                               Foreground="#BAC2E8" FontSize="11" Margin="0,0,0,4"/>
+                                    <Button x:Name="CorrectPlaneBtn" Content="校正平面" Click="CorrectPlaneBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="跳动量计算 (calculateRunout)">
+                                <StackPanel>
+                                    <TextBlock Text="对输出点云计算端面跳动值并高亮极值点。"
+                                               TextWrapping="Wrap" Foreground="#BAC2E8" FontSize="11" Margin="0,0,0,4"/>
+                                    <Button x:Name="RunoutBtn" Content="计算跳动量" Click="RunoutBtn_Click"/>
+                                    <TextBlock x:Name="RunoutResultText"
+                                               Text="跳动量：-" TextWrapping="Wrap"
+                                               Foreground="#A6E3A1" FontSize="11" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+            </TabControl>
+        </DockPanel>
+
+        <!-- ============================================================
+             RIGHT PANEL – two HelixViewport3D (before / after)
+             ============================================================ -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Input viewport label -->
+            <Border Grid.Row="0" Background="#313244" Padding="8,4">
+                <TextBlock Text="输入点云 (Input)"
+                           Foreground="#89DCEB" FontWeight="SemiBold"/>
+            </Border>
+
+            <!-- Input 3D viewport -->
+            <helix:HelixViewport3D x:Name="InputViewport" Grid.Row="1"
+                                   Background="#11111B"
+                                   ShowFrameRate="False"
+                                   ZoomExtentsWhenLoaded="True"
+                                   ShowCoordinateSystem="True">
+                <helix:DefaultLights/>
+            </helix:HelixViewport3D>
+
+            <!-- Output viewport label -->
+            <Border Grid.Row="2" Background="#313244" Padding="8,4">
+                <TextBlock Text="输出点云 (Output)"
+                           Foreground="#A6E3A1" FontWeight="SemiBold"/>
+            </Border>
+
+            <!-- Output 3D viewport -->
+            <helix:HelixViewport3D x:Name="OutputViewport" Grid.Row="3"
+                                   Background="#11111B"
+                                   ShowFrameRate="False"
+                                   ZoomExtentsWhenLoaded="True"
+                                   ShowCoordinateSystem="True">
+                <helix:DefaultLights/>
+            </helix:HelixViewport3D>
+
+        </Grid>
+    </Grid>
+</Window>
