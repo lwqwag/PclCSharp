@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>WpfHelixDemo</AssemblyName>
+    <RootNamespace>WpfHelixDemo</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HelixToolkit.Wpf" Version="3.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Include PclCSharp C# wrapper sources directly (P/Invoke declarations) -->
+    <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\Filter.cs"    Link="PclWrapper\Filter.cs"/>
+    <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\Io.cs"        Link="PclWrapper\Io.cs"/>
+    <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\SampleConsensus.cs" Link="PclWrapper\SampleConsensus.cs"/>
+    <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\Segmentation.cs"  Link="PclWrapper\Segmentation.cs"/>
+    <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\Util.cs"      Link="PclWrapper\Util.cs"/>
+    <!-- Include PointCloudSharp data-structure sources -->
+    <Compile Include="..\..\..\src\PclSharpWrapper\PointCloudSharpDll\PointCloudXYZ.cs"     Link="PclWrapper\PointCloudXYZ.cs"/>
+    <Compile Include="..\..\..\src\PclSharpWrapper\PointCloudSharpDll\PointCloudNormal.cs"  Link="PclWrapper\PointCloudNormal.cs"/>
+    <Compile Include="..\..\..\src\PclSharpWrapper\PointCloudSharpDll\PointCloudXYZRGB.cs"  Link="PclWrapper\PointCloudXYZRGB.cs"/>
+    <Compile Include="..\..\..\src\PclSharpWrapper\PointCloudSharpDll\PointIndices.cs"      Link="PclWrapper\PointIndices.cs"/>
+  </ItemGroup>
+
+</Project>
