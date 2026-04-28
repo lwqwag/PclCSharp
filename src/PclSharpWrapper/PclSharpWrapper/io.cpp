@@ -10,7 +10,7 @@ void Pc2Array(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in, double * out_x, doub
 
 	}
 }
-//加载点云文件，函数弃用
+// Load point-cloud file and export XYZ to separate arrays.
 HEAD int CallingConvention loadFile(char * path, double * out_x, double * out_y, double * out_z)
 {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
@@ -24,7 +24,7 @@ HEAD int CallingConvention loadFile(char * path, double * out_x, double * out_y,
 		return 1;
 	}
 }
-//加载ply文件
+// Load PLY file.
 HEAD int CallingConvention loadPlyFile(char * path, pcl::PointCloud<pcl::PointXYZ>* pc)
 {
 	if (pcl::io::loadPLYFile(path, *pc) == -1)
@@ -36,7 +36,7 @@ HEAD int CallingConvention loadPlyFile(char * path, pcl::PointCloud<pcl::PointXY
 		return 1;
 	}
 }
-//加载pcd文件
+// Load PCD file.
 HEAD int CallingConvention loadPcdFile(char* path, pcl::PointCloud<pcl::PointXYZ> * pc)
 {
 	if (pcl::io::loadPCDFile(path, *pc) == -1)
@@ -49,11 +49,11 @@ HEAD int CallingConvention loadPcdFile(char* path, pcl::PointCloud<pcl::PointXYZ
 	}
 
 }
-//加载obj
+// Load OBJ file.
 HEAD int CallingConvention loadObjFile(char* path, pcl::PointCloud<pcl::PointXYZ> * pc)
 {
-	//不能直接使用pcl::io::loadOBJFile这个函数，应该先用loadPolygonFile吧文件加载进PolygonMesh
-	//再用fromPCLPointCloud2进行转换。直接使用pcl::io::loadOBJFile会报错
+	// Direct use of pcl::io::loadOBJFile is not suitable here.
+	// Use loadPolygonFile first, then convert mesh.cloud with fromPCLPointCloud2.
 	pcl::PolygonMesh mesh;
 
 	if (pcl::io::loadPolygonFile(path, mesh) < 0)
@@ -68,7 +68,7 @@ HEAD int CallingConvention loadObjFile(char* path, pcl::PointCloud<pcl::PointXYZ
 	}
 
 }
-//加载txt文件
+// Load TXT file.
 HEAD int CallingConvention loadTxtFile(char * path, pcl::PointCloud<pcl::PointXYZ>* pc)
 {
 	
@@ -76,9 +76,9 @@ HEAD int CallingConvention loadTxtFile(char * path, pcl::PointCloud<pcl::PointXY
 	pcl::PointXYZ tmpoint;
 	if (Points_in.is_open())
 	{
-		while (!Points_in.eof())   //尚未到达文件结尾
+		while (!Points_in.eof())   // Read until end-of-file.
 		{
-			//>>操作符会忽略空白符和换行符
+			// Operator>> treats spaces and newlines as separators.
 			Points_in >> tmpoint.x >> tmpoint.y >> tmpoint.z;
 			pc->points.push_back(tmpoint);
 		}
@@ -93,7 +93,7 @@ HEAD int CallingConvention loadTxtFile(char * path, pcl::PointCloud<pcl::PointXY
 	
 }
 
-//保存pcd文件
+// Save PCD file.
 HEAD void CallingConvention savePcdFile(char* path, pcl::PointCloud<pcl::PointXYZ> * pc, int binaryMode)
 {
 	if (binaryMode >= 1)
@@ -106,7 +106,7 @@ HEAD void CallingConvention savePcdFile(char* path, pcl::PointCloud<pcl::PointXY
 	}
 
 }
-//保存ply文件
+// Save PLY file.
 HEAD void CallingConvention savePlyFile(char* path, pcl::PointCloud<pcl::PointXYZ> * pc, int binaryMode)
 {
 	if (binaryMode >= 1)
@@ -119,15 +119,15 @@ HEAD void CallingConvention savePlyFile(char* path, pcl::PointCloud<pcl::PointXY
 	}
 
 }
-//保存obj文件
+// Save OBJ file.
 
 HEAD void CallingConvention saveObjFile(char* path, pcl::PointCloud<pcl::PointXYZ> * pc)
 {
-	//TODO 添加将点云对象保存为obj格式的代码
+	// TODO: add implementation to save point cloud as OBJ.
 
 }
 
-//stl转为点云对象
+// Convert STL mesh to point cloud.
 HEAD void CallingConvention stl2PointCloud(char * path, pcl::PointCloud<pcl::PointXYZ>* pc)
 {
 	vtkSmartPointer<vtkSTLReader> stlreader = vtkSmartPointer<vtkSTLReader>::New();

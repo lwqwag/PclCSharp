@@ -240,8 +240,12 @@ public partial class MainWindow : Window
         {
             _inputCloud.Clear();
             int ret = Io.loadPcdFile(path, _inputCloud.PointCloudXYZPointer);
-            if (ret != 0)
-                MessageBox.Show($"加载 PCD 失败，错误码：{ret}", "错误");
+            if (ret == 0)
+            {
+                MessageBox.Show("加载 PCD 失败。", "错误");
+                return false;
+            }
+            return true;
         });
 
     private void LoadPlyBtn_Click(object sender, RoutedEventArgs e)
@@ -249,8 +253,12 @@ public partial class MainWindow : Window
         {
             _inputCloud.Clear();
             int ret = Io.loadPlyFile(path, _inputCloud.PointCloudXYZPointer);
-            if (ret != 0)
-                MessageBox.Show($"加载 PLY 失败，错误码：{ret}", "错误");
+            if (ret == 0)
+            {
+                MessageBox.Show("加载 PLY 失败。", "错误");
+                return false;
+            }
+            return true;
         });
 
     private void LoadObjBtn_Click(object sender, RoutedEventArgs e)
@@ -258,8 +266,12 @@ public partial class MainWindow : Window
         {
             _inputCloud.Clear();
             int ret = Io.loadObjFile(path, _inputCloud.PointCloudXYZPointer);
-            if (ret != 0)
-                MessageBox.Show($"加载 OBJ 失败，错误码：{ret}", "错误");
+            if (ret == 0)
+            {
+                MessageBox.Show("加载 OBJ 失败。", "错误");
+                return false;
+            }
+            return true;
         });
 
     private void LoadTxtBtn_Click(object sender, RoutedEventArgs e)
@@ -267,8 +279,12 @@ public partial class MainWindow : Window
         {
             _inputCloud.Clear();
             int ret = Io.loadTxtFile(path, _inputCloud.PointCloudXYZPointer);
-            if (ret != 0)
-                MessageBox.Show($"加载 TXT 失败，错误码：{ret}", "错误");
+            if (ret == 0)
+            {
+                MessageBox.Show("加载 TXT 失败。", "错误");
+                return false;
+            }
+            return true;
         });
 
     private void SavePcdBtn_Click(object sender, RoutedEventArgs e)
@@ -287,13 +303,13 @@ public partial class MainWindow : Window
     }
 
     // Shared helpers for open / save dialogs
-    private void LoadFile(string filter, Action<string> load)
+    private void LoadFile(string filter, Func<string, bool> load)
     {
         var dlg = new OpenFileDialog { Filter = filter };
         if (dlg.ShowDialog() != true) return;
         try
         {
-            load(dlg.FileName);
+            if (!load(dlg.FileName)) return;
             RefreshInput();
             SetStatus($"已加载：{System.IO.Path.GetFileName(dlg.FileName)} ({_inputCloud.Size:N0} pts)");
         }
