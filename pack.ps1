@@ -91,10 +91,10 @@ $runtimeStage = Join-Path $env:TEMP "pclcsharp-runtime-$Version"
 if (Test-Path $runtimeStage) { Remove-Item $runtimeStage -Recurse -Force }
 New-Item -ItemType Directory -Path $runtimeStage | Out-Null
 
-# Native C++ DLLs produced by CMake (PclSharpWrapper.dll, PointCloudDll.dll)
+# Native C++ DLLs produced by CMake (PclDll.dll, PointCloudDll.dll)
 if (Test-Path $binDir) {
     Get-ChildItem $binDir -Filter "*.dll" |
-        Where-Object { $_.Name -match "^(PclSharpWrapper|PointCloudDll)" } |
+        Where-Object { $_.Name -match "^(PclDll|PointCloudDll)" } |
         Copy-Item -Destination $runtimeStage -Force
 }
 
@@ -156,7 +156,7 @@ if (Test-Path $demoPublish) {
 # Copy native C++ DLLs into the demo package so it is self-contained
 if (Test-Path $binDir) {
     Get-ChildItem $binDir -Filter "*.dll" |
-        Where-Object { $_.Name -match "^(PclSharpWrapper|PointCloudDll)" } |
+        Where-Object { $_.Name -match "^(PclDll|PointCloudDll)" } |
         Copy-Item -Destination $demoStage -Force
 }
 
