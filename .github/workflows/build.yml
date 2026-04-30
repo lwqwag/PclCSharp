@@ -161,7 +161,8 @@ jobs:
                       "zlib1.dll", "lz4*.dll", "lzma*.dll", "zstd.dll", "bz2.dll", "tbb*.dll",
                       "vtk*.dll",
                       "libpng16.dll", "libjpeg*.dll", "libtiff*.dll",
-                      "freetype.dll", "libexpat.dll", "double-conversion.dll")
+                      "freetype.dll", "libexpat.dll", "double-conversion.dll",
+                      "fmt*.dll")
         foreach ($pat in $patterns) {
           Get-ChildItem $vcpkgBin -Filter $pat -ErrorAction SilentlyContinue |
             Copy-Item -Destination $destDir -Force
