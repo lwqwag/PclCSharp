@@ -314,6 +314,33 @@ if (-not $SkipCollect) {
         Write-Warning "VTK bin directory not found under PCL root – VTK DLLs not collected."
     }
 
+    # Image-library DLLs (libpng16, libjpeg, libtiff, freetype, etc.) that are
+    # required at runtime by PointCloudDll / VTK image I/O.
+    $imgPatterns = @("libpng16.dll", "libjpeg*.dll", "libtiff*.dll",
+                     "freetype.dll", "libexpat.dll", "double-conversion.dll")
+    $imgSearchDirs = @(
+        (Join-Path $PCLRoot "bin"),
+        (Join-Path $PCLRoot "3rdParty\VTK\bin"),
+        (Join-Path $PCLRoot "3rdParty\libpng\bin"),
+        (Join-Path $PCLRoot "3rdParty\libjpeg\bin"),
+        (Join-Path $PCLRoot "3rdParty\libtiff\bin")
+    ) | Where-Object { Test-Path $_ }
+
+    $imgCopied = 0
+    foreach ($imgDir in $imgSearchDirs) {
+        foreach ($pat in $imgPatterns) {
+            Get-ChildItem $imgDir -Filter $pat -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -notlike "*-gd-*" } |
+                ForEach-Object {
+                    Copy-Item $_.FullName -Destination $destDir -Force
+                    $imgCopied++
+                }
+        }
+    }
+    if ($imgCopied -gt 0) {
+        Write-Host "  Copied $imgCopied image-library DLL(s) (libpng16, libjpeg, libtiff, …)"
+    }
+
     Write-Host ""
     Write-Host "  Runtime DLLs in depend\x64:"
     Get-ChildItem $destDir | Sort-Object Name | ForEach-Object { Write-Host "    $($_.Name)" }
