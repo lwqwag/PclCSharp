@@ -286,59 +286,45 @@ if (-not $SkipCollect) {
         Write-Warning "PCL bin directory not found: $pclBin"
     }
 
-    # VTK runtime DLLs
-    $vtkModules = @(
-        "vtkCommonCore", "vtkCommonDataModel", "vtkCommonExecutionModel",
-        "vtkCommonMath", "vtkCommonMisc", "vtkCommonSystem", "vtkCommonTransforms",
-        "vtkIOCore", "vtkIOGeometry", "vtksys", "vtkzlib", "vtklz4"
+    # VTK and other third-party runtime DLLs.
+    # Search all candidate directories under the PCL installation root.
+    $depPatterns = @(
+        "vtk*.dll",
+        "boost_*.dll", "flann_cpp*.dll", "qhull*.dll",
+        "zlib1.dll", "lz4*.dll", "lzma*.dll",
+        "zstd.dll", "bz2.dll", "tbb*.dll",
+        "libpng16.dll", "libjpeg*.dll", "libtiff*.dll",
+        "freetype.dll", "libexpat.dll", "double-conversion.dll"
     )
-    $vtkBinCandidates = @(
-        (Join-Path $PCLRoot "3rdParty\VTK\bin"),
-        (Join-Path $PCLRoot "bin")
-    )
-    $vtkBin = $vtkBinCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-
-    if ($vtkBin) {
-        $copied = 0
-        foreach ($mod in $vtkModules) {
-            $dll = Get-ChildItem $vtkBin -Filter "${mod}-*.dll" -ErrorAction SilentlyContinue |
-                   Where-Object { $_.Name -notlike "*-gd-*" } |
-                   Select-Object -First 1
-            if ($dll) {
-                Copy-Item $dll.FullName -Destination $destDir -Force
-                $copied++
-            }
-        }
-        Write-Host "  Copied $copied VTK DLL(s) from $vtkBin"
-    } else {
-        Write-Warning "VTK bin directory not found under PCL root – VTK DLLs not collected."
-    }
-
-    # Image-library DLLs (libpng16, libjpeg, libtiff, freetype, etc.) that are
-    # required at runtime by PointCloudDll / VTK image I/O.
-    $imgPatterns = @("libpng16.dll", "libjpeg*.dll", "libtiff*.dll",
-                     "freetype.dll", "libexpat.dll", "double-conversion.dll")
-    $imgSearchDirs = @(
+    $depSearchDirs = @(
         (Join-Path $PCLRoot "bin"),
         (Join-Path $PCLRoot "3rdParty\VTK\bin"),
+        (Join-Path $PCLRoot "3rdParty\Boost\lib"),
+        (Join-Path $PCLRoot "3rdParty\FLANN\bin"),
         (Join-Path $PCLRoot "3rdParty\libpng\bin"),
         (Join-Path $PCLRoot "3rdParty\libjpeg\bin"),
-        (Join-Path $PCLRoot "3rdParty\libtiff\bin")
+        (Join-Path $PCLRoot "3rdParty\libtiff\bin"),
+        (Join-Path $PCLRoot "3rdParty\zlib\bin"),
+        (Join-Path $PCLRoot "3rdParty\bzip2\bin"),
+        (Join-Path $PCLRoot "3rdParty\zstd\bin"),
+        (Join-Path $PCLRoot "3rdParty\tbb\bin")
     ) | Where-Object { Test-Path $_ }
 
-    $imgCopied = 0
-    foreach ($imgDir in $imgSearchDirs) {
-        foreach ($pat in $imgPatterns) {
-            Get-ChildItem $imgDir -Filter $pat -ErrorAction SilentlyContinue |
+    $depCopied = 0
+    foreach ($depDir in $depSearchDirs) {
+        foreach ($pat in $depPatterns) {
+            Get-ChildItem $depDir -Filter $pat -ErrorAction SilentlyContinue |
                 Where-Object { $_.Name -notlike "*-gd-*" } |
                 ForEach-Object {
                     Copy-Item $_.FullName -Destination $destDir -Force
-                    $imgCopied++
+                    $depCopied++
                 }
         }
     }
-    if ($imgCopied -gt 0) {
-        Write-Host "  Copied $imgCopied image-library DLL(s) (libpng16, libjpeg, libtiff, …)"
+    if ($depCopied -gt 0) {
+        Write-Host "  Copied $depCopied dependency DLL(s) (VTK, Boost, FLANN, zstd, bz2, tbb, image libs, …)"
+    } else {
+        Write-Warning "No dependency DLLs found under PCL root – VTK/Boost/zstd/bz2/tbb DLLs not collected."
     }
 
     Write-Host ""
