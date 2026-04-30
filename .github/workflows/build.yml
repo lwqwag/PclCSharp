@@ -156,9 +156,11 @@ jobs:
         Get-ChildItem $vcpkgBin -Filter "pcl_*.dll" |
           Copy-Item -Destination $destDir -Force
 
-        Write-Host "Copying dependency DLLs (Boost, FLANN, qhull, zlib, lz4, lzma, VTK)..."
+        Write-Host "Copying dependency DLLs (Boost, FLANN, qhull, zlib, lz4, lzma, VTK, image libs)..."
         $patterns = @("boost_*.dll", "flann_cpp*.dll", "qhull*.dll",
-                      "zlib1.dll", "lz4*.dll", "lzma*.dll", "vtk*.dll")
+                      "zlib1.dll", "lz4*.dll", "lzma*.dll", "vtk*.dll",
+                      "libpng16.dll", "libjpeg*.dll", "libtiff*.dll",
+                      "freetype.dll", "libexpat.dll", "double-conversion.dll")
         foreach ($pat in $patterns) {
           Get-ChildItem $vcpkgBin -Filter $pat -ErrorAction SilentlyContinue |
             Copy-Item -Destination $destDir -Force
