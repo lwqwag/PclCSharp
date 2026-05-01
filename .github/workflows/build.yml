@@ -25,7 +25,7 @@ jobs:
       # packages. Using a fixed tag ensures every run (including PR builds) hits
       # the same binary cache entries, so packages are only recompiled when this
       # value changes.
-      VCPKG_COMMIT: '2025.04.09'
+      VCPKG_COMMIT: '2026.04.27'
       # Use the GitHub Actions cache backend for vcpkg binary packages.
       # Packages are cached individually so only changed packages are rebuilt.
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
