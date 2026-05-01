@@ -27,6 +27,9 @@ jobs:
   publish:
     runs-on: windows-latest
     env:
+      # Pinned vcpkg release tag – keep in sync with build.yml.
+      # Bump this string to upgrade all PCL/VTK/Boost packages.
+      VCPKG_COMMIT: '2025.04.09'
       # Use the GitHub Actions cache backend for vcpkg binary packages.
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
@@ -59,18 +62,11 @@ jobs:
     # -----------------------------------------------------------------------
     # Disk / cache preparation (mirrors build.yml)
     # -----------------------------------------------------------------------
-    - name: Cache vcpkg downloads
-      uses: actions/cache@v4
-      with:
-        path: C:\vcpkg\downloads
-        key: vcpkg-downloads-${{ runner.os }}-${{ hashFiles('**/vcpkg.json') }}
-        restore-keys: |
-          vcpkg-downloads-${{ runner.os }}-
 
+    # Free disk space first so there is room to restore caches below.
     - name: Free disk space
       shell: pwsh
       run: |
-        # Remove large pre-installed tools that are not needed for this build.
         $dirsToRemove = @(
           'C:\Android',
           'C:\hostedtoolcache\windows\go',
@@ -92,6 +88,27 @@ jobs:
         Write-Host "`nDisk space after cleanup:"
         Get-PSDrive C | Select-Object Used, Free
 
+    # Cache the vcpkg downloads directory to avoid re-downloading source archives.
+    # Key is tied to the pinned vcpkg commit so a version bump invalidates it.
+    - name: Cache vcpkg downloads
+      uses: actions/cache@v4
+      with:
+        path: C:\vcpkg\downloads
+        key: vcpkg-downloads-${{ runner.os }}-${{ env.VCPKG_COMMIT }}
+        restore-keys: |
+          vcpkg-downloads-${{ runner.os }}-
+
+    # Cache the fully-installed vcpkg tree. A cache hit lets us skip the entire
+    # vcpkg install step (which takes 30–90 min on a cold runner).
+    - name: Cache vcpkg installed packages
+      id: vcpkg-installed-cache
+      uses: actions/cache@v4
+      with:
+        path: C:\vcpkg\installed
+        key: vcpkg-installed-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-pcl-vtk-x64-windows
+        restore-keys: |
+          vcpkg-installed-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-
+
     # -----------------------------------------------------------------------
     # Toolchain setup
     # -----------------------------------------------------------------------
@@ -111,19 +128,36 @@ jobs:
           core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
           core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
-    # -----------------------------------------------------------------------
-    # Build PCL from source via vcpkg (binary-cached after first run)
-    # -----------------------------------------------------------------------
-    - name: Build and install PCL from source via vcpkg
+    # Pin the runner's pre-installed vcpkg to the exact release tag declared in
+    # VCPKG_COMMIT. Always runs (even on cache hit) to export VCPKG_ROOT.
+    - name: Pin vcpkg to fixed commit
       shell: pwsh
       run: |
         $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
-        Write-Host "vcpkg root: $vcpkgRoot"
-        & "$vcpkgRoot\vcpkg.exe" install "pcl[vtk]:x64-windows" `
+        Write-Host "Pinning vcpkg to $env:VCPKG_COMMIT ..."
+        # Fetch only the specific release tag to keep the network transfer small.
+        git -C $vcpkgRoot fetch origin "refs/tags/$($env:VCPKG_COMMIT):refs/tags/$($env:VCPKG_COMMIT)" --depth 1
+        git -C $vcpkgRoot checkout $env:VCPKG_COMMIT
+        # Rebuild vcpkg.exe so it matches the pinned source tree.
+        & "$vcpkgRoot\bootstrap-vcpkg.bat" -disableMetrics
+        # Expose the vcpkg root for all subsequent steps.
+        "VCPKG_ROOT=$vcpkgRoot" | Out-File -Append $env:GITHUB_ENV
+
+    # -----------------------------------------------------------------------
+    # Build PCL from source via vcpkg (binary-cached after first run)
+    # -----------------------------------------------------------------------
+
+    # Only run the full PCL install when the installed-package cache was not
+    # restored above. On a cache hit the installed tree is already in place.
+    - name: Build and install PCL from source via vcpkg
+      if: steps.vcpkg-installed-cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        Write-Host "vcpkg root: $env:VCPKG_ROOT"
+        & "$env:VCPKG_ROOT\vcpkg.exe" install "pcl[vtk]:x64-windows" `
             --no-print-usage `
             --clean-buildtrees-after-build `
             --clean-packages-after-build
-        "VCPKG_ROOT=$vcpkgRoot" | Out-File -Append $env:GITHUB_ENV
 
     # -----------------------------------------------------------------------
     # Build C++ DLLs
