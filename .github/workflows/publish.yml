@@ -29,7 +29,7 @@ jobs:
     env:
       # Pinned vcpkg release tag – keep in sync with build.yml.
       # Bump this string to upgrade all PCL/VTK/Boost packages.
-      VCPKG_COMMIT: '2025.04.09'
+      VCPKG_COMMIT: '2026.04.27'
       # Use the GitHub Actions cache backend for vcpkg binary packages.
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
