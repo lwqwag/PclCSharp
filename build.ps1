@@ -293,9 +293,9 @@ if (-not $SkipCollect) {
         "boost_*.dll", "flann_cpp*.dll", "qhull*.dll",
         "zlib1.dll", "lz4*.dll", "lzma*.dll",
         "zstd.dll", "bz2.dll", "tbb*.dll",
-        "libpng16.dll", "libjpeg*.dll", "libtiff*.dll",
+        "libpng16.dll", "libjpeg*.dll", "jpeg*.dll", "libtiff*.dll", "tiff.dll",
         "freetype.dll", "libexpat.dll", "double-conversion.dll",
-        "fmt*.dll"
+        "fmt*.dll", "pugixml.dll", "verdict.dll"
     )
     $depSearchDirs = @(
         (Join-Path $PCLRoot "bin"),
