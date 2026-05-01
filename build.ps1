@@ -331,6 +331,25 @@ if (-not $SkipCollect) {
     Write-Host ""
     Write-Host "  Runtime DLLs in depend\x64:"
     Get-ChildItem $destDir | Sort-Object Name | ForEach-Object { Write-Host "    $($_.Name)" }
+
+    # Also copy any vcpkg applocal dependencies that the CMake build placed
+    # alongside the built DLLs in bin\ (e.g. z.dll, zlib1.dll, etc.).
+    # vcpkg's VCPKG_APPLOCAL_DEPS feature copies required runtime DLLs to
+    # the target's output directory, so collecting from bin\ ensures nothing
+    # is missed even when a dependency uses a non-standard DLL name.
+    $binDir = Join-Path $RepoRoot "bin"
+    if (Test-Path $binDir) {
+        $binCopied = 0
+        Get-ChildItem $binDir -Filter "*.dll" |
+            Where-Object { $_.Name -notmatch "^(PclDll|PointCloudDll)\.dll$" } |
+            ForEach-Object {
+                Copy-Item $_.FullName -Destination $destDir -Force
+                $binCopied++
+            }
+        if ($binCopied -gt 0) {
+            Write-Host "  Copied $binCopied DLL(s) from bin\ (vcpkg applocal dependencies)"
+        }
+    }
 } else {
     Write-Host "  [SkipCollect] Skipping DLL collection step."
 }

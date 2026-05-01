@@ -233,6 +233,18 @@ jobs:
             Copy-Item -Destination $destDir -Force
         }
 
+        # Also copy any vcpkg applocal dependencies that the CMake build placed
+        # alongside the built DLLs in bin/ (e.g. z.dll, zlib1.dll, etc.).
+        # vcpkg's VCPKG_APPLOCAL_DEPS feature copies required runtime DLLs to
+        # the target's output directory, so collecting from bin/ ensures nothing
+        # is missed even when a dependency uses a non-standard DLL name.
+        Write-Host "Copying vcpkg applocal dependencies from bin/..."
+        if (Test-Path "bin") {
+          Get-ChildItem "bin" -Filter "*.dll" |
+            Where-Object { $_.Name -notmatch "^(PclDll|PointCloudDll)\.dll$" } |
+            Copy-Item -Destination $destDir -Force
+        }
+
         Write-Host "`nRuntime DLLs collected in $destDir :"
         Get-ChildItem $destDir | Sort-Object Name | Select-Object Name
 
