@@ -334,6 +334,90 @@
                     </ScrollViewer>
                 </TabItem>
 
+                <!-- ======================== Search Tab ======================== -->
+                <TabItem Header="Search 查询">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#181825">
+                        <StackPanel Margin="6">
+
+                            <GroupBox Header="查询点设置">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Label Content="查询索引:" Grid.Column="0"/>
+                                        <TextBox x:Name="SearchQueryIndexTxt" Text="0" Grid.Column="1"/>
+                                    </Grid>
+                                    <TextBlock Text="查询点默认取输入点云中指定索引位置的点。"
+                                               TextWrapping="Wrap" Foreground="#BAC2E8" FontSize="11" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="KDTree 搜索">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <Label Content="KNN-K:" Grid.Row="0" Grid.Column="0"/>
+                                        <TextBox x:Name="KdKTxt" Text="10" Grid.Row="0" Grid.Column="1"/>
+                                        <Label Content="Radius:" Grid.Row="1" Grid.Column="0"/>
+                                        <TextBox x:Name="KdRadiusTxt" Text="0.05" Grid.Row="1" Grid.Column="1"/>
+                                        <Label Content="Max NN:" Grid.Row="2" Grid.Column="0"/>
+                                        <TextBox x:Name="KdMaxTxt" Text="128" Grid.Row="2" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="KdKnnBtn" Content="执行 KDTree KNN" Click="KdKnnBtn_Click"/>
+                                    <Button x:Name="KdRadiusBtn" Content="执行 KDTree Radius" Click="KdRadiusBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="Octree 搜索">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <Label Content="Resolution:" Grid.Row="0" Grid.Column="0"/>
+                                        <TextBox x:Name="OctResolutionTxt" Text="0.02" Grid.Row="0" Grid.Column="1"/>
+                                        <Label Content="KNN-K:" Grid.Row="1" Grid.Column="0"/>
+                                        <TextBox x:Name="OctKTxt" Text="10" Grid.Row="1" Grid.Column="1"/>
+                                        <Label Content="Radius:" Grid.Row="2" Grid.Column="0"/>
+                                        <TextBox x:Name="OctRadiusTxt" Text="0.05" Grid.Row="2" Grid.Column="1"/>
+                                        <Label Content="Max NN:" Grid.Row="3" Grid.Column="0"/>
+                                        <TextBox x:Name="OctMaxTxt" Text="128" Grid.Row="3" Grid.Column="1"/>
+                                    </Grid>
+                                    <Button x:Name="OctKnnBtn" Content="执行 Octree KNN" Click="OctKnnBtn_Click"/>
+                                    <Button x:Name="OctRadiusBtn" Content="执行 Octree Radius" Click="OctRadiusBtn_Click"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="查询结果">
+                                <StackPanel>
+                                    <TextBlock x:Name="SearchResultText"
+                                               Text="结果：-"
+                                               TextWrapping="Wrap"
+                                               Foreground="#BAC2E8"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
                 <!-- ======================== SampleConsensus / Util Tab ======================== -->
                 <TabItem Header="SC / Util">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#181825">

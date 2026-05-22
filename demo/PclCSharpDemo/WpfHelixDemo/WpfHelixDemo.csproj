@@ -20,6 +20,8 @@
     <!-- Include PclCSharp C# wrapper sources directly (P/Invoke declarations) -->
     <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\Filter.cs"    Link="PclWrapper\Filter.cs"/>
     <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\Io.cs"        Link="PclWrapper\Io.cs"/>
+    <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\KdTreeSearch.cs" Link="PclWrapper\KdTreeSearch.cs"/>
+    <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\OctreeSearch.cs" Link="PclWrapper\OctreeSearch.cs"/>
     <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\SampleConsensus.cs" Link="PclWrapper\SampleConsensus.cs"/>
     <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\Segmentation.cs"  Link="PclWrapper\Segmentation.cs"/>
     <Compile Include="..\..\..\src\PclSharpWrapper\PclCSharp\Util.cs"      Link="PclWrapper\Util.cs"/>

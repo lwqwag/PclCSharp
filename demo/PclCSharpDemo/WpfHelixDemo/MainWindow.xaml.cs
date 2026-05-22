@@ -589,6 +589,210 @@ public partial class MainWindow : Window
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    //  Search Tab handlers (KDTree / Octree)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private bool TryGetQueryPoint(out int queryIndex, out double qx, out double qy, out double qz)
+    {
+        queryIndex = -1;
+        qx = qy = qz = 0;
+
+        if (!EnsureInputCloud()) return false;
+
+        if (!int.TryParse(SearchQueryIndexTxt.Text, out queryIndex))
+            queryIndex = 0;
+
+        if (queryIndex < 0 || queryIndex >= _inputCloud.Size)
+        {
+            MessageBox.Show($"查询索引越界：{queryIndex}，有效范围 [0, {_inputCloud.Size - 1}]", "提示");
+            return false;
+        }
+
+        qx = _inputCloud.GetX(queryIndex);
+        qy = _inputCloud.GetY(queryIndex);
+        qz = _inputCloud.GetZ(queryIndex);
+        return true;
+    }
+
+    private static string BuildSearchResultSummary(
+        string name,
+        int queryIndex,
+        int found,
+        IReadOnlyList<int> indices,
+        IReadOnlyList<float> dist2)
+    {
+        string head = $"{name} 完成 | QueryIndex={queryIndex} | 命中={found}";
+        if (found <= 0) return head + "\n无结果";
+
+        int show = Math.Min(found, 8);
+        var rows = new List<string>(show);
+        for (int i = 0; i < show; i++)
+            rows.Add($"#{i + 1}: idx={indices[i]}, dist2={dist2[i]:G6}");
+
+        return head + "\n" + string.Join("\n", rows);
+    }
+
+    private void ShowSearchHits(
+        int queryIndex,
+        IReadOnlyList<int> hitIndices,
+        int hitCount)
+    {
+        // 先显示整云，保持和其它算子一致的观察体验
+        ShowCloud(OutputViewport, _inputCloud);
+
+        if (queryIndex < 0 || queryIndex >= _inputCloud.Size) return;
+
+        // 高亮查询点（白色）
+        var queryPt = new Point3D(_inputCloud.GetX(queryIndex),
+                                  _inputCloud.GetY(queryIndex),
+                                  _inputCloud.GetZ(queryIndex));
+        OutputViewport.Children.Add(new PointsVisual3D
+        {
+            Color = Colors.White,
+            Size = 10,
+            Points = new Point3DCollection([queryPt])
+        });
+
+        if (hitCount <= 0) return;
+
+        // 高亮命中邻居点（橙红色）
+        var pts = new Point3DCollection();
+        int max = Math.Min(hitCount, hitIndices.Count);
+        for (int i = 0; i < max; i++)
+        {
+            int idx = hitIndices[i];
+            if (idx < 0 || idx >= _inputCloud.Size) continue;
+            pts.Add(new Point3D(_inputCloud.GetX(idx),
+                                _inputCloud.GetY(idx),
+                                _inputCloud.GetZ(idx)));
+        }
+
+        if (pts.Count > 0)
+        {
+            OutputViewport.Children.Add(new PointsVisual3D
+            {
+                Color = Colors.OrangeRed,
+                Size = 7,
+                Points = pts
+            });
+        }
+
+        OutputViewport.ZoomExtents();
+    }
+
+    private void KdKnnBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetQueryPoint(out int queryIndex, out double qx, out double qy, out double qz)) return;
+        if (!int.TryParse(KdKTxt.Text, out int k)) k = 10;
+
+        try
+        {
+            int found = KdTreeSearch.NearestKSearch(
+                _inputCloud.PointCloudXYZPointer,
+                qx, qy, qz,
+                k,
+                out int[] indices,
+                out float[] dist2);
+
+            string summary = BuildSearchResultSummary("KDTree KNN", queryIndex, found, indices, dist2);
+            SearchResultText.Text = summary;
+            ShowSearchHits(queryIndex, indices, found);
+            SetStatus($"KDTree KNN 完成 – 命中 {found} 个邻居");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"KDTree KNN 失败：{ex.Message}", "错误",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void KdRadiusBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetQueryPoint(out int queryIndex, out double qx, out double qy, out double qz)) return;
+        if (!double.TryParse(KdRadiusTxt.Text, out double radius)) radius = 0.05;
+        if (!int.TryParse(KdMaxTxt.Text, out int maxNn)) maxNn = 128;
+
+        try
+        {
+            int found = KdTreeSearch.RadiusSearch(
+                _inputCloud.PointCloudXYZPointer,
+                qx, qy, qz,
+                radius,
+                maxNn,
+                out int[] indices,
+                out float[] dist2);
+
+            string summary = BuildSearchResultSummary("KDTree Radius", queryIndex, found, indices, dist2);
+            SearchResultText.Text = summary;
+            ShowSearchHits(queryIndex, indices, found);
+            SetStatus($"KDTree Radius 完成 – 命中 {found} 个邻居");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"KDTree Radius 失败：{ex.Message}", "错误",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OctKnnBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetQueryPoint(out int queryIndex, out double qx, out double qy, out double qz)) return;
+        if (!double.TryParse(OctResolutionTxt.Text, out double resolution)) resolution = 0.02;
+        if (!int.TryParse(OctKTxt.Text, out int k)) k = 10;
+
+        try
+        {
+            int found = OctreeSearch.NearestKSearch(
+                _inputCloud.PointCloudXYZPointer,
+                resolution,
+                qx, qy, qz,
+                k,
+                out int[] indices,
+                out float[] dist2);
+
+            string summary = BuildSearchResultSummary("Octree KNN", queryIndex, found, indices, dist2);
+            SearchResultText.Text = summary;
+            ShowSearchHits(queryIndex, indices, found);
+            SetStatus($"Octree KNN 完成 – 命中 {found} 个邻居");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Octree KNN 失败：{ex.Message}", "错误",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OctRadiusBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetQueryPoint(out int queryIndex, out double qx, out double qy, out double qz)) return;
+        if (!double.TryParse(OctResolutionTxt.Text, out double resolution)) resolution = 0.02;
+        if (!double.TryParse(OctRadiusTxt.Text, out double radius)) radius = 0.05;
+        if (!int.TryParse(OctMaxTxt.Text, out int maxNn)) maxNn = 128;
+
+        try
+        {
+            int found = OctreeSearch.RadiusSearch(
+                _inputCloud.PointCloudXYZPointer,
+                resolution,
+                qx, qy, qz,
+                radius,
+                maxNn,
+                out int[] indices,
+                out float[] dist2);
+
+            string summary = BuildSearchResultSummary("Octree Radius", queryIndex, found, indices, dist2);
+            SearchResultText.Text = summary;
+            ShowSearchHits(queryIndex, indices, found);
+            SetStatus($"Octree Radius 完成 – 命中 {found} 个邻居");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Octree Radius 失败：{ex.Message}", "错误",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     //  SampleConsensus / Util Tab handlers
     // ═══════════════════════════════════════════════════════════════════════════
 

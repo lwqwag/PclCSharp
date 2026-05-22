@@ -7,6 +7,8 @@ find_package(PCL REQUIRED)
 set(SOURCES
     filter.cpp
     io.cpp
+    kdtree.cpp
+    octree.cpp
     pcl_util.cpp
     sampleConsensus.cpp
     segmentation.cpp
@@ -16,6 +18,8 @@ set(SOURCES
 set(HEADERS
     filter.h
     io.h
+    kdtree.h
+    octree.h
     pcl_util.h
     sampleConsensus.h
     segmentation.h

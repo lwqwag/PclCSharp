@@ -1,27 +1,29 @@
 <#
 .SYNOPSIS
-    Local build script for PclCSharp (Windows x64).
+    Local build script for PclCSharp (Windows x64, vcpkg based).
 
 .DESCRIPTION
-    Mirrors the GitHub Actions CI workflow (build.yml).
+    Mirrors CI behavior using vcpkg as the dependency source.
     Steps performed:
       1. Locate and activate an MSVC x64 toolchain.
-      2. Optionally download and silently install PCL 1.14.1.
-      3. Locate PCLConfig.cmake and derive PCL_DIR.
-      4. Configure and build the C++ DLLs with CMake + Ninja.
+      2. Resolve (or clone/bootstrap) vcpkg.
+      3. Install required dependencies with vcpkg (pcl).
+      4. Configure and build the C++ DLLs with CMake + Ninja + vcpkg toolchain.
       5. Build the .NET solution with MSBuild.
-      6. Collect PCL / VTK runtime DLLs into depend\x64.
+      6. Collect runtime DLLs into depend\x64.
 
-.PARAMETER PCLRoot
-    Path to an existing PCL installation.
-    Defaults to the PCL_ROOT environment variable, then C:\PCL.
+.PARAMETER VcpkgRoot
+    Path to an existing vcpkg root folder.
+    Defaults to VCPKG_ROOT env var, then common local paths.
+
+.PARAMETER VcpkgTriplet
+    vcpkg triplet. Default: x64-windows.
 
 .PARAMETER Config
-    CMake / MSBuild build configuration.  Default: Release.
+    CMake / MSBuild build configuration. Default: Release.
 
-.PARAMETER SkipInstallPCL
-    Skip the PCL download-and-install step even when PCL is not found at
-    the expected location.
+.PARAMETER SkipInstallDeps
+    Skip the vcpkg install step.
 
 .PARAMETER SkipCpp
     Skip the CMake configure + build step (C++ DLLs).
@@ -33,12 +35,12 @@
     Skip collecting runtime DLLs into depend\x64.
 
 .EXAMPLE
-    # Full build, auto-install PCL if missing:
+    # Full build, auto-locate or clone vcpkg if needed:
     .\build.ps1
 
 .EXAMPLE
-    # Use a custom PCL root, Release build:
-    .\build.ps1 -PCLRoot D:\SDK\PCL
+    # Use a custom vcpkg root and triplet:
+    .\build.ps1 -VcpkgRoot D:\pkg -VcpkgTriplet x64-windows
 
 .EXAMPLE
     # Only rebuild the C++ layer:
@@ -46,9 +48,11 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $PCLRoot        = "",
+    [string] $VcpkgRoot      = "",
+    [string] $VcpkgTriplet   = "x64-windows",
+    [string] $BuildDir       = "build",
     [string] $Config         = "Release",
-    [switch] $SkipInstallPCL,
+    [switch] $SkipInstallDeps,
     [switch] $SkipCpp,
     [switch] $SkipDotNet,
     [switch] $SkipCollect
@@ -68,6 +72,67 @@ function Write-Step([string]$msg) {
 function Find-File([string]$root, [string]$filter) {
     Get-ChildItem $root -Recurse -Filter $filter -ErrorAction SilentlyContinue |
         Select-Object -First 1
+}
+
+function Resolve-Vcpkg([string]$RepoRoot, [string]$VcpkgRootArg) {
+    $roots = @()
+    if ($VcpkgRootArg) { $roots += $VcpkgRootArg }
+    if ($env:VCPKG_ROOT) { $roots += $env:VCPKG_ROOT }
+    $roots += @(
+        (Join-Path $RepoRoot ".vcpkg"),
+        (Join-Path $RepoRoot "vcpkg"),
+        "D:\pkg",
+        "C:\vcpkg"
+    )
+
+    $roots = $roots | Where-Object { $_ } | Select-Object -Unique
+
+    foreach ($r in $roots) {
+        $exe = Join-Path $r "vcpkg.exe"
+        if (Test-Path $exe) {
+            return @{
+                Root = $r
+                Exe = $exe
+                Toolchain = (Join-Path $r "scripts\buildsystems\vcpkg.cmake")
+            }
+        }
+    }
+
+    # Auto clone vcpkg into repo-local .vcpkg if not found.
+    $cloneRoot = Join-Path $RepoRoot ".vcpkg"
+    if (-not (Test-Path $cloneRoot)) {
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+            Write-Error "vcpkg 未找到，且 git 不可用，无法自动拉取 vcpkg。请安装 git 或手动指定 -VcpkgRoot。"
+            exit 1
+        }
+        Write-Step "Cloning vcpkg into $cloneRoot"
+        git clone https://github.com/microsoft/vcpkg $cloneRoot
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "git clone vcpkg 失败。"
+            exit 1
+        }
+    }
+
+    $bootstrap = Join-Path $cloneRoot "bootstrap-vcpkg.bat"
+    $exe = Join-Path $cloneRoot "vcpkg.exe"
+    if (-not (Test-Path $exe)) {
+        if (-not (Test-Path $bootstrap)) {
+            Write-Error "无法在 $cloneRoot 找到 bootstrap-vcpkg.bat。"
+            exit 1
+        }
+        Write-Step "Bootstrapping vcpkg"
+        cmd.exe /c "`"$bootstrap`""
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exe)) {
+            Write-Error "vcpkg bootstrap 失败。"
+            exit 1
+        }
+    }
+
+    return @{
+        Root = $cloneRoot
+        Exe = $exe
+        Toolchain = (Join-Path $cloneRoot "scripts\buildsystems\vcpkg.cmake")
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -143,71 +208,35 @@ if (-not (Get-Command "ninja" -ErrorAction SilentlyContinue)) {
 Write-Host "  Ninja: $(ninja --version)"
 
 # ---------------------------------------------------------------------------
-# Step 2 – Resolve PCL root
+# Step 2 – Resolve vcpkg
 # ---------------------------------------------------------------------------
-Write-Step "Resolving PCL installation"
+Write-Step "Resolving vcpkg"
+$vcpkg = Resolve-Vcpkg -RepoRoot $RepoRoot -VcpkgRootArg $VcpkgRoot
 
-if (-not $PCLRoot) {
-    if ($env:PCL_ROOT) {
-        $PCLRoot = $env:PCL_ROOT
-        Write-Host "  Using PCL_ROOT env var: $PCLRoot"
-    } else {
-        $PCLRoot = "C:\PCL"
-    }
-}
-
-$pclInclude = Join-Path $PCLRoot "include"
-if (-not (Test-Path $pclInclude)) {
-    if ($SkipInstallPCL) {
-        Write-Error "PCL not found at '$PCLRoot' and -SkipInstallPCL was set. Aborting."
-        exit 1
-    }
-
-    Write-Step "Downloading PCL 1.14.1 AllInOne installer"
-    $installerUrl  = "https://github.com/PointCloudLibrary/pcl/releases/download/pcl-1.14.1/PCL-1.14.1-AllInOne-msvc2022-win64.exe"
-    $installerPath = Join-Path $env:TEMP "PCL-1.14.1-installer.exe"
-
-    Write-Host "  Downloading to $installerPath ..."
-    Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -TimeoutSec 600
-    Write-Host "  Download complete. Size: $([math]::Round((Get-Item $installerPath).Length / 1MB, 1)) MB"
-
-    Write-Step "Installing PCL 1.14.1 to $PCLRoot"
-    $proc = Start-Process -Wait -PassThru -FilePath $installerPath -ArgumentList "/S /D=$PCLRoot"
-    Write-Host "  Installer exit code: $($proc.ExitCode)"
-
-    if (-not (Test-Path $pclInclude)) {
-        Write-Error "PCL installation appears to have failed – '$pclInclude' not found."
-        exit 1
-    }
-    Write-Host "  PCL installed successfully."
-} else {
-    Write-Host "  PCL found at: $PCLRoot"
-}
-
-# ---------------------------------------------------------------------------
-# Step 3 – Locate PCLConfig.cmake → PCL_DIR
-# ---------------------------------------------------------------------------
-Write-Step "Locating PCLConfig.cmake"
-
-$candidates = @(
-    (Join-Path $PCLRoot "cmake"),
-    (Join-Path $PCLRoot "lib\cmake\pcl")
-)
-$PCLDir = $null
-foreach ($c in $candidates) {
-    if (Test-Path (Join-Path $c "PCLConfig.cmake")) { $PCLDir = $c; break }
-}
-if (-not $PCLDir) {
-    $found = Find-File $PCLRoot "PCLConfig.cmake"
-    if ($found) { $PCLDir = $found.DirectoryName }
-}
-if (-not $PCLDir) {
-    Write-Error "Could not locate PCLConfig.cmake under '$PCLRoot'."
+if (-not (Test-Path $vcpkg.Toolchain)) {
+    Write-Error "vcpkg toolchain 文件不存在: $($vcpkg.Toolchain)"
     exit 1
 }
-Write-Host "  PCL_DIR = $PCLDir"
-$env:PCL_DIR  = $PCLDir
-$env:PCL_ROOT = $PCLRoot
+
+$VcpkgRoot = $vcpkg.Root
+$env:VCPKG_ROOT = $VcpkgRoot
+Write-Host "  VCPKG_ROOT = $VcpkgRoot"
+Write-Host "  vcpkg.exe  = $($vcpkg.Exe)"
+Write-Host "  triplet    = $VcpkgTriplet"
+
+# ---------------------------------------------------------------------------
+# Step 3 – Install dependencies with vcpkg
+# ---------------------------------------------------------------------------
+if (-not $SkipInstallDeps) {
+    Write-Step "Installing dependencies via vcpkg"
+    & $vcpkg.Exe install pcl --triplet $VcpkgTriplet
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "vcpkg install 失败。"
+        exit 1
+    }
+} else {
+    Write-Host "  [SkipInstallDeps] Skipping vcpkg dependency installation."
+}
 
 # ---------------------------------------------------------------------------
 # Step 4 – Configure & build C++ DLLs with CMake
@@ -215,12 +244,36 @@ $env:PCL_ROOT = $PCLRoot
 if (-not $SkipCpp) {
     Write-Step "Configuring C++ projects with CMake"
 
-    $buildDir = Join-Path $RepoRoot "build"
+    if ([System.IO.Path]::IsPathRooted($BuildDir)) {
+        $buildDir = $BuildDir
+    } else {
+        $buildDir = Join-Path $RepoRoot $BuildDir
+    }
+
+    # 如果已有缓存不是 Ninja 生成器，自动切换到独立目录，避免冲突。
+    $cachePath = Join-Path $buildDir "CMakeCache.txt"
+    if (Test-Path $cachePath) {
+        $cacheLine = Get-Content $cachePath -ErrorAction SilentlyContinue |
+            Where-Object { $_ -like "CMAKE_GENERATOR:*" } |
+            Select-Object -First 1
+
+        if ($cacheLine -and $cacheLine -match "=(.*)$") {
+            $existingGenerator = $Matches[1].Trim()
+            if ($existingGenerator -ne "Ninja") {
+                $fallbackBuildDir = Join-Path $RepoRoot "build-ninja"
+                Write-Warning "Detected existing generator '$existingGenerator' in '$buildDir'. Switching to '$fallbackBuildDir' for Ninja build."
+                $buildDir = $fallbackBuildDir
+            }
+        }
+    }
+
+    Write-Host "  CMake binary dir: $buildDir"
     cmake -S $RepoRoot -B $buildDir `
           -G Ninja `
           "-DCMAKE_BUILD_TYPE=$Config" `
-          "-DPCL_DIR=$PCLDir" `
-          "-DPCL_ROOT=$PCLRoot"
+        "-DCMAKE_TOOLCHAIN_FILE=$($vcpkg.Toolchain)" `
+        "-DVCPKG_TARGET_TRIPLET=$VcpkgTriplet" `
+        "-DVCPKG_APPLOCAL_DEPS=ON"
     if ($LASTEXITCODE -ne 0) { Write-Error "CMake configure failed."; exit 1 }
 
     Write-Step "Building C++ DLLs"
@@ -273,70 +326,24 @@ if (-not $SkipCollect) {
     $destDir = Join-Path $RepoRoot "depend\x64"
     if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir | Out-Null }
 
-    # PCL release DLLs
-    $pclBin = Join-Path $PCLRoot "bin"
-    if (Test-Path $pclBin) {
-        $copied = 0
-        Get-ChildItem $pclBin -Filter "pcl_*_release.dll" | ForEach-Object {
+    # Copy runtime DLLs directly from vcpkg installed/<triplet>/bin.
+    $vcpkgBin = Join-Path $VcpkgRoot "installed\$VcpkgTriplet\bin"
+    if (Test-Path $vcpkgBin) {
+        $vcpkgCopied = 0
+        Get-ChildItem $vcpkgBin -Filter "*.dll" | ForEach-Object {
             Copy-Item $_.FullName -Destination $destDir -Force
-            $copied++
+            $vcpkgCopied++
         }
-        Write-Host "  Copied $copied PCL DLL(s) from $pclBin"
+        Write-Host "  Copied $vcpkgCopied DLL(s) from $vcpkgBin"
     } else {
-        Write-Warning "PCL bin directory not found: $pclBin"
-    }
-
-    # VTK and other third-party runtime DLLs.
-    # Search all candidate directories under the PCL installation root.
-    $depPatterns = @(
-        "vtk*.dll",
-        "boost_*.dll", "flann_cpp*.dll", "qhull*.dll",
-        "zlib1.dll", "lz4*.dll", "lzma*.dll",
-        "zstd.dll", "bz2.dll", "tbb*.dll",
-        "libpng16.dll", "libjpeg*.dll", "jpeg*.dll", "libtiff*.dll", "tiff.dll",
-        "freetype.dll", "libexpat.dll", "double-conversion.dll",
-        "fmt*.dll", "pugixml.dll", "verdict.dll"
-    )
-    $depSearchDirs = @(
-        (Join-Path $PCLRoot "bin"),
-        (Join-Path $PCLRoot "3rdParty\VTK\bin"),
-        (Join-Path $PCLRoot "3rdParty\Boost\lib"),
-        (Join-Path $PCLRoot "3rdParty\FLANN\bin"),
-        (Join-Path $PCLRoot "3rdParty\libpng\bin"),
-        (Join-Path $PCLRoot "3rdParty\libjpeg\bin"),
-        (Join-Path $PCLRoot "3rdParty\libtiff\bin"),
-        (Join-Path $PCLRoot "3rdParty\zlib\bin"),
-        (Join-Path $PCLRoot "3rdParty\bzip2\bin"),
-        (Join-Path $PCLRoot "3rdParty\zstd\bin"),
-        (Join-Path $PCLRoot "3rdParty\tbb\bin")
-    ) | Where-Object { Test-Path $_ }
-
-    $depCopied = 0
-    foreach ($depDir in $depSearchDirs) {
-        foreach ($pat in $depPatterns) {
-            Get-ChildItem $depDir -Filter $pat -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name -notlike "*-gd-*" } |
-                ForEach-Object {
-                    Copy-Item $_.FullName -Destination $destDir -Force
-                    $depCopied++
-                }
-        }
-    }
-    if ($depCopied -gt 0) {
-        Write-Host "  Copied $depCopied dependency DLL(s) (VTK, Boost, FLANN, zstd, bz2, tbb, image libs, …)"
-    } else {
-        Write-Warning "No dependency DLLs found under PCL root – VTK/Boost/zstd/bz2/tbb DLLs not collected."
+        Write-Warning "vcpkg bin 目录不存在: $vcpkgBin"
     }
 
     Write-Host ""
     Write-Host "  Runtime DLLs in depend\x64:"
     Get-ChildItem $destDir | Sort-Object Name | ForEach-Object { Write-Host "    $($_.Name)" }
 
-    # Also copy any vcpkg applocal dependencies that the CMake build placed
-    # alongside the built DLLs in bin\ (e.g. z.dll, zlib1.dll, etc.).
-    # vcpkg's VCPKG_APPLOCAL_DEPS feature copies required runtime DLLs to
-    # the target's output directory, so collecting from bin\ ensures nothing
-    # is missed even when a dependency uses a non-standard DLL name.
+    # Also copy any applocal dependencies that CMake placed next to outputs.
     $binDir = Join-Path $RepoRoot "bin"
     if (Test-Path $binDir) {
         $binCopied = 0

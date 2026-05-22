@@ -45,6 +45,8 @@
   <ItemGroup>
     <Compile Include="Filter.cs" />
     <Compile Include="Io.cs" />
+    <Compile Include="KdTreeSearch.cs" />
+    <Compile Include="OctreeSearch.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SampleConsensus.cs" />
     <Compile Include="Segmentation.cs" />
